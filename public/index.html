@@ -1029,7 +1029,11 @@ async function saveSettings() {
       actSaveCalls.push(apiPost('/api/activities', data));
     }
   }
-  for (const id of removedActivityIds) await apiDelete(`/api/activities/${id}`);
+  for (const id of removedActivityIds) {
+    console.log('Deleting activity', id);
+    const r = await apiDelete(`/api/activities/${id}`);
+    console.log('Delete result', id, r);
+  }
   await Promise.all(actSaveCalls);
 
   await loadAccounts();

@@ -47,6 +47,10 @@ app.use('/api/import',       requireAuth, requireWrite, require('./routes/import
 app.use('/api/export',       requireAuth, require('./routes/export'));
 
 // Serve frontend
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/') res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('*', (req, res) => {
   // SPA: serve index.html for all non-API routes
