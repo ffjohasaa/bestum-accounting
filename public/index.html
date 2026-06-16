@@ -1007,21 +1007,30 @@ async function saveSettings() {
   for (const r of localRules) if (r.id) await apiDelete(`/api/rules/${r.id}`);
   for (const r of newRules) await apiPost('/api/rules', r);
 
-  // Sync activities from editor
-  const actRows = document.querySelectorAll('#activityCfgEditor tbody tr');
-  const newActivities = [...actRows].map(tr => {
+  // Sync activities: PUT existing, POST new, DELETE removed
+  const actRows = [...document.querySelectorAll('#activityCfgEditor tbody tr')];
+  const remainingIds = new Set();
+  const actSaveCalls = [];
+  for (const tr of actRows) {
     const inputs = tr.querySelectorAll('input');
-    return {
+    const idx    = parseInt(tr.querySelector('[data-ai]')?.dataset.ai ?? '-1');
+    const existing = (idx >= 0 && idx < localActivities.length) ? localActivities[idx] : null;
+    const data = {
       name:             inputs[0].value.trim(),
       income_accounts:  inputs[1].value.split(',').map(s=>s.trim()).filter(Boolean),
       expense_accounts: inputs[2].value.split(',').map(s=>s.trim()).filter(Boolean),
       year:             currentYear,
     };
-  }).filter(a => a.name);
-
-  // Delete removed, upsert existing
-  for (const a of localActivities) if (a.id) await apiDelete(`/api/activities/${a.id}`);
-  for (const a of newActivities) await apiPost('/api/activities', a);
+    if (!data.name) continue;
+    if (existing?.id) {
+      remainingIds.add(existing.id);
+      actSaveCalls.push(apiPut(`/api/activities/${existing.id}`, data));
+    } else {
+      actSaveCalls.push(apiPost('/api/activities', data));
+    }
+  }
+  for (const a of localActivities) if (a.id && !remainingIds.has(a.id)) await apiDelete(`/api/activities/${a.id}`);
+  await Promise.all(actSaveCalls);
 
   await loadAccounts();
   await loadSettings();
