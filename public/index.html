@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bestum Regnskap</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --navy:#0D47A1; --blue:#1565C0; --light-blue:#BBDEFB; --vlight-blue:#E3F2FD;
+  --green:#2E7D32; --red:#C62828; --dark:#1a2332; --gray:#607D8B;
+  --light:#f0f4f8; --white:#fff; --border:#e0e0e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--light);color:var(--dark);}
+nav{background:var(--navy);padding:0 2rem;display:flex;align-items:center;height:52px;gap:1.5rem;}
+nav h1{color:white;font-size:1rem;font-weight:600;white-space:nowrap;}
+nav .sep{color:rgba(255,255,255,0.3);}
+.nav-links{display:flex;gap:0.3rem;}
+.nav-links a{color:rgba(255,255,255,0.75);text-decoration:none;font-size:0.85rem;padding:0.35rem 0.7rem;border-radius:6px;cursor:pointer;}
+.nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,0.15);color:white;}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:0.8rem;}
+.nav-right .status{color:rgba(255,255,255,0.6);font-size:0.78rem;}
+.btn-nav{background:rgba(255,255,255,0.15);color:white;border:none;padding:0.35rem 0.9rem;border-radius:6px;font-size:0.82rem;cursor:pointer;}
+.btn-nav:hover{background:rgba(255,255,255,0.25);}
+.year-select{background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.25);padding:0.3rem 0.5rem;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600;}
+.year-select option{background:var(--navy);color:white;}
+.container{max-width:1280px;margin:0 auto;padding:1.2rem 1.5rem;}
+.tab{display:none;}.tab.active{display:block;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.8rem;margin-bottom:1.2rem;}
+.kpi{background:var(--white);border-radius:10px;padding:1rem 1.2rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.kpi-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray);margin-bottom:0.2rem;}
+.kpi-value{font-size:1.5rem;font-weight:700;}
+.kpi-value.green{color:var(--green);}.kpi-value.red{color:var(--red);}.kpi-value.blue{color:var(--navy);}
+.card{background:var(--white);border-radius:10px;padding:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:1.2rem;}
+.card h2{font-size:0.9rem;color:var(--navy);margin-bottom:0.8rem;font-weight:600;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;}
+@media(max-width:800px){.grid-2{grid-template-columns:1fr;}}
+.chart-box{height:260px;position:relative;}
+table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+th{text-align:left;padding:0.5rem 0.6rem;background:#f5f7fa;color:var(--gray);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.03em;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:1;}
+td{padding:0.4rem 0.6rem;border-bottom:1px solid #f0f0f0;}
+tr:hover td{background:#f8f9fb;}
+.r{text-align:right;}.dim{color:#90a4ae;}.in{color:var(--green);font-weight:500;}.out{color:var(--red);font-weight:500;}
+.bal{font-weight:600;}
+.scroll-table{max-height:65vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;}
+.konto-cell{cursor:pointer;border-radius:4px;padding:2px 4px;transition:background 0.15s;}
+.konto-cell:hover{background:var(--vlight-blue);}
+.konto-select{font-size:0.8rem;padding:2px;border:1px solid var(--blue);border-radius:4px;max-width:180px;}
+.cb-cell{width:24px;text-align:center;}
+.cb-cell input{cursor:pointer;}
+tr.selected td{background:var(--vlight-blue)!important;}
+.bulk-bar{display:none;background:var(--navy);color:white;padding:0.5rem 1rem;border-radius:8px;margin-bottom:0.8rem;align-items:center;gap:1rem;font-size:0.85rem;}
+.bulk-bar.show{display:flex;}
+.bulk-bar select,.bulk-bar button{font-size:0.82rem;padding:0.3rem 0.6rem;border-radius:5px;border:none;}
+.bulk-bar button{background:white;color:var(--navy);cursor:pointer;font-weight:600;}
+.bulk-bar .count{font-weight:600;}
+.upload-zone{border:2px dashed var(--light-blue);border-radius:12px;padding:2.5rem;text-align:center;cursor:pointer;transition:all 0.2s;background:#f5f9ff;}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--navy);background:var(--vlight-blue);}
+.upload-zone h3{color:var(--navy);margin-bottom:0.3rem;font-size:1rem;}
+.upload-zone p{color:var(--gray);font-size:0.85rem;}
+.log{margin-top:1rem;max-height:300px;overflow-y:auto;}
+.log-item{padding:0.6rem 0.8rem;border-radius:6px;margin-bottom:0.4rem;font-size:0.82rem;}
+.log-item.ok{background:#e8f5e9;color:var(--green);}
+.log-item.err{background:#fbe9e7;color:var(--red);}
+.log-item.info{background:var(--vlight-blue);color:var(--navy);}
+.act-in{background:#f1f8e9;}.act-out{background:#fce4ec;}.act-net{font-weight:600;}
+.act-pos{color:var(--green);}.act-neg{color:var(--red);}
+.empty{text-align:center;padding:4rem 2rem;color:var(--gray);}
+.empty h2{color:var(--navy);margin-bottom:0.5rem;font-size:1.2rem;}
+.btn-primary{background:var(--navy);color:white;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-size:0.9rem;cursor:pointer;}
+.btn-primary:hover{background:var(--blue);}
+.search-bar{margin-bottom:0.8rem;display:flex;gap:0.5rem;}
+.search-bar input{flex:1;padding:0.45rem 0.8rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;}
+.search-bar select{padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;}
+.badge{display:inline-block;padding:0.1rem 0.5rem;border-radius:4px;font-size:0.72rem;font-weight:500;}
+.badge-bank{background:var(--vlight-blue);color:var(--navy);}
+.badge-vipps{background:#fff3e0;color:#e65100;}
+.balance-box{background:var(--vlight-blue);border-radius:10px;padding:1rem 1.5rem;margin-bottom:1.2rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;}
+.bal-item{text-align:center;}
+.bal-label{font-size:0.7rem;text-transform:uppercase;color:var(--gray);letter-spacing:0.04em;}
+.bal-value{font-size:1.3rem;font-weight:700;color:var(--navy);}
+.bal-arrow{font-size:1.2rem;color:var(--gray);}
+.bal-result{color:var(--green);}.bal-result.neg{color:var(--red);}
+.kat-section{margin-bottom:1.5rem;}
+.kat-section h3{font-size:0.85rem;color:var(--navy);margin-bottom:0.5rem;font-weight:600;}
+.kat-bar{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.82rem;}
+.kat-bar .label{min-width:180px;}
+.kat-bar .bar-wrap{flex:1;height:18px;background:#f0f0f0;border-radius:4px;overflow:hidden;}
+.kat-bar .bar{height:100%;border-radius:4px;min-width:2px;}
+.bar-in{background:rgba(46,125,50,0.6);}.bar-out{background:rgba(198,40,40,0.6);}
+.kat-bar .amount{min-width:90px;text-align:right;font-weight:500;}
+.dialog-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center;}
+.dialog-overlay.show{display:flex;}
+.dialog{background:white;border-radius:12px;padding:1.8rem;width:380px;box-shadow:0 8px 30px rgba(0,0,0,0.15);}
+.dialog h2{color:var(--navy);margin-bottom:1rem;font-size:1.1rem;}
+.dialog label{display:block;font-size:0.85rem;color:var(--gray);margin-bottom:0.3rem;}
+.dialog input{width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-size:1rem;margin-bottom:1rem;}
+.dialog .actions{display:flex;gap:0.5rem;justify-content:flex-end;}
+.dialog .btn-cancel{background:#f0f0f0;color:var(--dark);border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;}
+.budget-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem;}
+.budget-card{background:white;border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem;cursor:pointer;transition:box-shadow 0.15s;}
+.budget-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.1);}
+.budget-card h3{margin:0 0 0.3rem;font-size:1rem;color:var(--navy);}
+.budget-card .bc-meta{font-size:0.8rem;color:var(--gray);margin-bottom:0.6rem;}
+.budget-card .bc-sum{font-size:1.05rem;font-weight:700;color:var(--navy);}
+.budget-card .bc-actions{display:flex;gap:0.5rem;margin-top:0.8rem;}
+.budget-editor{background:white;border:1px solid var(--border);border-radius:10px;padding:1.4rem;}
+.budget-editor h2{color:var(--navy);margin-bottom:1rem;font-size:1.1rem;}
+.budget-editor .field-row{display:flex;gap:0.8rem;margin-bottom:0.8rem;flex-wrap:wrap;}
+.budget-editor .field-row>*{flex:1;min-width:140px;}
+.budget-editor label{display:block;font-size:0.82rem;color:var(--gray);margin-bottom:0.25rem;}
+.budget-editor input,.budget-editor textarea{width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.95rem;box-sizing:border-box;}
+.cost-table{width:100%;border-collapse:collapse;margin-bottom:0.5rem;}
+.cost-table th{text-align:left;font-size:0.78rem;color:var(--gray);padding:0.3rem 0.4rem;border-bottom:1px solid var(--border);}
+.cost-table td{padding:0.3rem 0.4rem;vertical-align:middle;}
+.cost-table input{padding:0.3rem 0.4rem;font-size:0.9rem;}
+.cost-table input.narrow{width:90px;}
+.cost-table select{padding:0.3rem;font-size:0.85rem;border:1px solid var(--border);border-radius:4px;}
+.cost-table .btn-del{background:none;border:none;cursor:pointer;color:#c0392b;font-size:1rem;padding:2px 5px;}
+.budget-results{background:linear-gradient(135deg,#f0f4ff,#e8f5e9);border-radius:10px;padding:1.2rem 1.4rem;margin-top:1.2rem;}
+.budget-results h3{color:var(--navy);margin:0 0 0.8rem;font-size:1rem;}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem;}
+.result-box{background:white;border-radius:8px;padding:0.7rem 0.9rem;}
+.result-box .rb-label{font-size:0.75rem;color:var(--gray);margin-bottom:0.2rem;}
+.result-box .rb-val{font-size:1.3rem;font-weight:700;color:var(--navy);}
+.result-box .rb-val.warn{color:#e67e22;}.result-box .rb-val.ok{color:var(--green);}
+.participant-table{width:100%;border-collapse:collapse;font-size:0.88rem;}
+.participant-table th{text-align:right;font-size:0.76rem;color:var(--gray);padding:0.25rem 0.5rem;border-bottom:1px solid var(--border);}
+.participant-table th:first-child{text-align:left;}
+.participant-table td{padding:0.25rem 0.5rem;text-align:right;}
+.participant-table td:first-child{text-align:left;font-weight:600;}
+.participant-table tr.highlight td{background:#e8f5e9;font-weight:700;}
+.participant-table tr.breakeven td{background:#fff3e0;}
+.btn-budget-add{background:none;border:1px dashed var(--border);color:var(--gray);padding:0.35rem 0.8rem;border-radius:6px;cursor:pointer;font-size:0.85rem;margin-top:0.3rem;}
+.btn-budget-add:hover{border-color:var(--navy);color:var(--navy);}
+.budget-back{font-size:0.85rem;color:var(--gray);cursor:pointer;margin-bottom:1rem;display:inline-flex;align-items:center;gap:0.3rem;}
+.budget-back:hover{color:var(--navy);}
+tr.vipps-row td{background:#fff8f0;}
+tr.vipps-row:hover td{background:#fff0e0;}
+.setting-section{margin-bottom:1.5rem;}
+.setting-section h3{font-size:0.9rem;color:var(--navy);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;}
+.setting-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.setting-table th{background:#f5f7fa;padding:0.35rem 0.5rem;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--gray);}
+.setting-table td{padding:0.3rem 0.5rem;border-bottom:1px solid #f0f0f0;}
+.setting-table input,.setting-table select{font-size:0.8rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;width:100%;box-sizing:border-box;}
+.btn-sm{font-size:0.75rem;padding:0.2rem 0.5rem;border:none;border-radius:4px;cursor:pointer;}
+.btn-add{background:var(--vlight-blue);color:var(--navy);}.btn-add:hover{background:var(--light-blue);}
+.btn-del{background:#fbe9e7;color:var(--red);}.btn-del:hover{background:#ffcdd2;}
+.btn-save{background:var(--navy);color:white;padding:0.4rem 1rem;font-size:0.85rem;border:none;border-radius:6px;cursor:pointer;}.btn-save:hover{background:var(--blue);}
+.setting-help{font-size:0.75rem;color:var(--gray);margin-bottom:0.8rem;}
+.tabs-inner{display:flex;gap:0.3rem;margin-bottom:1rem;}
+.tabs-inner a{padding:0.35rem 0.8rem;border-radius:6px;font-size:0.82rem;cursor:pointer;color:var(--gray);background:#f0f4f8;}
+.tabs-inner a.active{background:var(--navy);color:white;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:12px;padding:1.8rem;width:460px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,0.18);}
+.modal h2{color:var(--navy);margin-bottom:0.4rem;font-size:1.1rem;}
+.modal label{display:block;font-size:0.85rem;color:var(--gray);margin-bottom:0.3rem;margin-top:0.8rem;}
+.modal textarea{width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-size:0.95rem;resize:vertical;min-height:60px;box-sizing:border-box;}
+.modal .actions{display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.2rem;}
+.modal .btn-cancel{background:#f0f0f0;color:var(--dark);border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-size:0.9rem;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<nav>
+  <h1>Bestum Regnskap</h1>
+  <span class="sep">|</span>
+  <div class="nav-links">
+    <a class="active" onclick="showTab('dashboard')">Dashboard</a>
+    <a onclick="showTab('transaksjoner')">Transaksjoner</a>
+    <a onclick="showTab('kategorier')">Kategorier</a>
+    <a onclick="showTab('aktiviteter')">Aktiviteter</a>
+    <a onclick="showTab('import')">Importer</a>
+    <a onclick="showTab('budsjett')">Budsjett</a>
+    <a onclick="showTab('innstillinger')">Innstillinger</a>
+  </div>
+  <div class="nav-right">
+    <select class="year-select" id="yearSelect" onchange="switchYear(this.value)"></select>
+    <button class="btn-nav" onclick="showNewYearDialog()">+ Nytt år</button>
+    <span class="status" id="userStatus"></span>
+    <button class="btn-nav" onclick="logout()">Logg ut</button>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="tab active">
+  <div id="balanceBox" class="balance-box" style="display:none"></div>
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="grid-2">
+    <div class="card"><h2>Inntekter og utgifter per måned</h2><div class="chart-box"><canvas id="monthlyChart"></canvas></div></div>
+    <div class="card"><h2>Resultat per måned</h2><div class="chart-box"><canvas id="resultChart"></canvas></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><h2>Kategorisammendrag</h2><div id="dashKategorier"></div></div>
+    <div class="card"><h2>Aktiviteter</h2><div id="dashAktiviteter"></div></div>
+  </div>
+</div>
+
+<!-- TRANSAKSJONER -->
+<div id="tab-transaksjoner" class="tab">
+  <div class="card">
+    <h2 id="transTitle">Transaksjoner</h2>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Søk i beskrivelse, konto..." oninput="filterTransactions()">
+      <select id="filterType" onchange="filterTransactions()">
+        <option value="">Alle typer</option>
+        <option value="income">Bare inntekter</option>
+        <option value="expense">Bare utgifter</option>
+      </select>
+      <select id="filterSource" onchange="filterTransactions()">
+        <option value="">Alle kilder</option>
+        <option value="Bank">Bank</option>
+        <option value="Vipps">Vipps</option>
+      </select>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+      <span><span class="count" id="bulkCount">0</span> valgt</span>
+      <span>Endre konto til:</span>
+      <select id="bulkKonto"></select>
+      <button onclick="applyBulkKonto()">Endre</button>
+      <button onclick="clearSelection()" style="background:transparent;color:rgba(255,255,255,0.7)">Avbryt</button>
+    </div>
+    <div class="scroll-table" id="allTransTable"></div>
+  </div>
+</div>
+
+<!-- KATEGORIER -->
+<div id="tab-kategorier" class="tab">
+  <div class="grid-2">
+    <div class="card"><h2>Inntekter per konto</h2><div id="katIncome"></div></div>
+    <div class="card"><h2>Utgifter per konto</h2><div id="katExpense"></div></div>
+  </div>
+  <div class="card"><h2>Kategorisammendrag</h2><div id="katSummaryTable"></div></div>
+</div>
+
+<!-- AKTIVITETER -->
+<div id="tab-aktiviteter" class="tab">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h2 style="margin:0">Aktivitetsregnskap</h2>
+    </div>
+    <div id="activityTable"></div>
+  </div>
+</div>
+
+<!-- IMPORT -->
+<div id="tab-import" class="tab">
+  <div class="card">
+    <h2>Importer CSV-filer</h2>
+    <div class="upload-zone" id="dropzone" onclick="document.getElementById('csvInput').click()">
+      <h3>Slipp bankfil eller Vipps-rapport her</h3>
+      <p>Importerer til valgt år. Klikk for å velge, eller dra CSV-filen hit.</p>
+      <input type="file" id="csvInput" accept=".csv,.CSV" style="display:none" multiple onchange="handleFiles(this.files)">
+    </div>
+    <div class="log" id="importLog"></div>
+  </div>
+</div>
+
+<!-- BUDSJETT -->
+<div id="tab-budsjett" class="tab">
+  <div id="budsjettList">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h2 style="color:var(--navy);margin:0">Aktivitetsbudsjetter</h2>
+      <button class="btn-primary" onclick="newBudget()">+ Nytt budsjett</button>
+    </div>
+    <div class="budget-list" id="budgetCards"></div>
+    <p id="budgetEmpty" style="color:var(--gray);display:none">Ingen budsjetter ennå.</p>
+  </div>
+  <div id="budsjettEditor" style="display:none">
+    <span class="budget-back" onclick="showBudgetList()">← Tilbake til oversikt</span>
+    <div class="budget-editor">
+      <h2 id="budgetEditorTitle">Nytt budsjett</h2>
+      <div class="field-row">
+        <div><label>Aktivitetsnavn</label><input type="text" id="budgetName" oninput="recalcBudget()"></div>
+        <div><label>Dato (valgfritt)</label><input type="date" id="budgetDate"></div>
+      </div>
+      <div class="field-row">
+        <div><label>Forventet antall deltakere</label><input type="number" id="budgetExpected" min="1" value="9" oninput="recalcBudget()"></div>
+        <div><label>Minimum antall</label><input type="number" id="budgetMin" min="1" value="6" oninput="recalcBudget()"></div>
+        <div><label>Maks antall</label><input type="number" id="budgetMax" min="1" value="12" oninput="recalcBudget()"></div>
+      </div>
+      <label style="margin-top:0.5rem">Kostnader</label>
+      <table class="cost-table">
+        <thead><tr><th style="width:38%">Beskrivelse</th><th>Type</th><th style="width:110px">Beløp (kr)</th><th style="width:36px"></th></tr></thead>
+        <tbody id="costTableBody"></tbody>
+      </table>
+      <button class="btn-budget-add" onclick="addCostRow()">+ Legg til kostnad</button>
+      <div class="budget-results" id="budgetResults" style="display:none">
+        <h3>Beregning</h3>
+        <div class="result-grid">
+          <div class="result-box"><div class="rb-label">Totale faste kostnader</div><div class="rb-val" id="resFixed">—</div></div>
+          <div class="result-box"><div class="rb-label">Variable kostn. per pers.</div><div class="rb-val" id="resPerPerson">—</div></div>
+          <div class="result-box"><div class="rb-label">Egenandel ved <span id="resExpLabel">9</span> deltakere</div><div class="rb-val ok" id="resEgenandel">—</div></div>
+          <div class="result-box"><div class="rb-label">Minimum deltakere (break-even)</div><div class="rb-val" id="resBreakEven">—</div></div>
+        </div>
+        <table class="participant-table">
+          <thead><tr><th>Antall deltakere</th><th>Egenandel (kr)</th><th>Totalt inn (kr)</th><th>Resultat (kr)</th></tr></thead>
+          <tbody id="participantRows"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:1.2rem">
+        <button class="btn-primary" onclick="saveBudget()">Lagre budsjett</button>
+        <button class="btn-sm btn-cancel" onclick="showBudgetList()">Avbryt</button>
+        <button class="btn-sm btn-del" id="budgetDeleteBtn" onclick="deleteBudget()" style="margin-left:auto;display:none">Slett</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INNSTILLINGER -->
+<div id="tab-innstillinger" class="tab">
+  <div class="card">
+    <h2>Innstillinger</h2>
+    <p class="setting-help">Endringer i kontoplan og regler lagres i databasen og gjelder for alle år.</p>
+    <div class="tabs-inner">
+      <a class="active" onclick="showSettingTab('kontoplan')">Kontoplan</a>
+      <a onclick="showSettingTab('regler')">Kategoriregler</a>
+    </div>
+    <div id="stab-kontoplan" class="setting-section">
+      <div id="kontoplanEditor"></div>
+      <button class="btn-sm btn-add" onclick="addKonto()" style="margin-top:0.5rem">+ Ny konto</button>
+    </div>
+    <div id="stab-regler" class="setting-section" style="display:none">
+      <div id="ruleEditor"></div>
+      <button class="btn-sm btn-add" onclick="addRule()">+ Ny regel</button>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center">
+      <button class="btn-save" onclick="saveSettings()">Lagre endringer</button>
+      <span id="settingsSavedMsg" style="color:var(--green);font-weight:600;display:none">✓ Lagret!</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- .container -->
+
+<!-- NEW YEAR DIALOG -->
+<div class="dialog-overlay" id="newYearOverlay">
+  <div class="dialog">
+    <h2>Opprett nytt regnskapsår</h2>
+    <label>År</label>
+    <input type="number" id="newYearInput" min="2020" max="2099" placeholder="2026">
+    <label>Inngående balanse (kr)</label>
+    <input type="number" id="newYearBalance" step="0.01" placeholder="0">
+    <div class="actions">
+      <button class="btn-cancel" onclick="hideNewYearDialog()">Avbryt</button>
+      <button class="btn-primary" onclick="createNewYear()">Opprett</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let currentYear = null;
+let allYears    = [];
+let dashData    = null;
+let allTxns     = [];
+let filteredTxns = [];
+let accounts    = {};  // code -> {name, type}
+let rules       = [];
+let selectedIds = new Set();
+let monthlyChart = null, resultChart = null;
+let currentBudgetId = null;
+let currentSettingTab = 'kontoplan';
+
+// ===== INIT =====
+async function init() {
+  const me = await apiFetch('/auth/me');
+  if (!me.user) { window.location.href = '/login.html'; return; }
+  document.getElementById('userStatus').textContent = me.user;
+  await loadAccounts();
+  await loadYears();
+}
+
+// ===== API HELPERS =====
+async function apiFetch(url, opts = {}) {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (r.status === 401) { window.location.href = '/login.html'; return null; }
+  return r.json();
+}
+
+async function apiPost(url, body) {
+  return apiFetch(url, { method: 'POST', body: JSON.stringify(body) });
+}
+
+async function apiPut(url, body) {
+  return apiFetch(url, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+async function apiDelete(url) {
+  return apiFetch(url, { method: 'DELETE' });
+}
+
+// ===== YEARS =====
+async function loadYears() {
+  allYears = await apiFetch('/api/years');
+  const sel = document.getElementById('yearSelect');
+  sel.innerHTML = '';
+  for (const y of allYears) {
+    const o = document.createElement('option');
+    o.value = y.year; o.textContent = y.year;
+    sel.appendChild(o);
+  }
+  if (allYears.length) await switchYear(allYears[0].year);
+}
+
+async function switchYear(year) {
+  currentYear = parseInt(year);
+  document.getElementById('yearSelect').value = year;
+  selectedIds.clear();
+  await Promise.all([loadDashboard(), loadTransactions()]);
+  showTab(currentTab || 'dashboard');
+}
+
+function showNewYearDialog() { document.getElementById('newYearOverlay').classList.add('show'); }
+function hideNewYearDialog() { document.getElementById('newYearOverlay').classList.remove('show'); }
+
+async function createNewYear() {
+  const year = parseInt(document.getElementById('newYearInput').value);
+  const bal  = parseFloat(document.getElementById('newYearBalance').value) || 0;
+  if (!year) return;
+  await apiPost('/api/years', { year, opening_balance: bal });
+  hideNewYearDialog();
+  await loadYears();
+  switchYear(year);
+}
+
+// ===== ACCOUNTS =====
+async function loadAccounts() {
+  const rows = await apiFetch('/api/accounts');
+  accounts = {};
+  for (const r of rows) accounts[r.code] = r;
+}
+
+// ===== DASHBOARD =====
+async function loadDashboard() {
+  dashData = await apiFetch(`/api/dashboard?year=${currentYear}`);
+  if (!dashData) return;
+  renderBalance();
+  renderKPIs();
+  renderCharts();
+  renderDashKategorier();
+  renderDashAktiviteter();
+}
+
+function nok(n) { return (Math.round(n)).toLocaleString('nb-NO') + ' kr'; }
+
+function renderBalance() {
+  const d = dashData;
+  const box = document.getElementById('balanceBox');
+  box.style.display = 'flex';
+  const resultClass = d.result >= 0 ? 'bal-result' : 'bal-result neg';
+  box.innerHTML = `
+    <div class="bal-item"><div class="bal-label">Inngående saldo</div><div class="bal-value">${nok(d.opening_balance)}</div></div>
+    <div class="bal-arrow">+</div>
+    <div class="bal-item"><div class="bal-label">Inntekter</div><div class="bal-value" style="color:var(--green)">${nok(d.total_income)}</div></div>
+    <div class="bal-arrow">−</div>
+    <div class="bal-item"><div class="bal-label">Utgifter</div><div class="bal-value" style="color:var(--red)">${nok(d.total_expense)}</div></div>
+    <div class="bal-arrow">=</div>
+    <div class="bal-item"><div class="bal-label">Årsresultat</div><div class="bal-value ${resultClass}">${nok(d.result)}</div></div>
+    <div class="bal-arrow">→</div>
+    <div class="bal-item"><div class="bal-label">Utgående saldo</div><div class="bal-value">${nok(d.closing_balance)}</div></div>
+  `;
+}
+
+function renderKPIs() {
+  const d = dashData;
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = `
+    <div class="kpi"><div class="kpi-label">Inntekter ${d.year}</div><div class="kpi-value green">${nok(d.total_income)}</div></div>
+    <div class="kpi"><div class="kpi-label">Utgifter ${d.year}</div><div class="kpi-value red">${nok(d.total_expense)}</div></div>
+    <div class="kpi"><div class="kpi-label">Årsresultat</div><div class="kpi-value ${d.result>=0?'green':'red'}">${nok(d.result)}</div></div>
+    <div class="kpi"><div class="kpi-label">Utgående saldo</div><div class="kpi-value blue">${nok(d.closing_balance)}</div></div>
+    <div class="kpi"><div class="kpi-label">Transaksjoner</div><div class="kpi-value blue">${d.transaction_count}</div></div>
+  `;
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+
+function renderCharts() {
+  const d = dashData;
+  const labels = MONTHS;
+  const income  = d.monthly.map(m => m.income);
+  const expense = d.monthly.map(m => m.expense);
+  const result  = d.monthly.map(m => m.income - m.expense);
+
+  if (monthlyChart) monthlyChart.destroy();
+  monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Inntekter', data: income, backgroundColor:'rgba(46,125,50,0.7)' },
+      { label:'Utgifter',  data: expense, backgroundColor:'rgba(198,40,40,0.6)' },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+  });
+
+  if (resultChart) resultChart.destroy();
+  resultChart = new Chart(document.getElementById('resultChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label:'Resultat', data: result,
+      backgroundColor: result.map(v => v >= 0 ? 'rgba(46,125,50,0.7)' : 'rgba(198,40,40,0.6)')
+    }]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+}
+
+function renderDashKategorier() {
+  const byAcc = dashData.by_account;
+  const incRows = byAcc.filter(a => a.income > 0).sort((a,b) => b.income - a.income).slice(0,8);
+  const expRows = byAcc.filter(a => a.expense > 0).sort((a,b) => b.expense - a.expense).slice(0,8);
+  const maxInc = Math.max(...incRows.map(r => r.income), 1);
+  const maxExp = Math.max(...expRows.map(r => r.expense), 1);
+  const el = document.getElementById('dashKategorier');
+  el.innerHTML = `
+    <div class="kat-section"><h3>Inntekter</h3>
+      ${incRows.map(r=>`<div class="kat-bar"><span class="label">${r.code} ${r.name}</span><div class="bar-wrap"><div class="bar bar-in" style="width:${r.income/maxInc*100}%"></div></div><span class="amount in">${nok(r.income)}</span></div>`).join('')}
+    </div>
+    <div class="kat-section"><h3>Utgifter</h3>
+      ${expRows.map(r=>`<div class="kat-bar"><span class="label">${r.code} ${r.name}</span><div class="bar-wrap"><div class="bar bar-out" style="width:${r.expense/maxExp*100}%"></div></div><span class="amount out">${nok(r.expense)}</span></div>`).join('')}
+    </div>`;
+}
+
+function renderDashAktiviteter() {
+  const acts = dashData.activities;
+  const el = document.getElementById('dashAktiviteter');
+  if (!acts.length) { el.innerHTML='<p style="color:var(--gray)">Ingen aktivitetsdata</p>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead><tbody>
+    ${acts.map(a=>`<tr><td>${a.name}</td><td class="r in">${a.income?nok(a.income):''}</td><td class="r out">${a.expense?nok(a.expense):''}</td><td class="r ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ===== TRANSACTIONS =====
+async function loadTransactions() {
+  allTxns = await apiFetch(`/api/transactions?year=${currentYear}&limit=2000`);
+  filteredTxns = [...allTxns];
+  renderTransactions();
+  populateBulkKonto();
+}
+
+function filterTransactions() {
+  const s   = document.getElementById('searchInput').value.toLowerCase();
+  const typ = document.getElementById('filterType').value;
+  const src = document.getElementById('filterSource').value;
+  filteredTxns = allTxns.filter(t => {
+    if (s && !`${t.description} ${t.account_name} ${t.account_code}`.toLowerCase().includes(s)) return false;
+    if (typ === 'income'  && !(parseFloat(t.income)  > 0)) return false;
+    if (typ === 'expense' && !(parseFloat(t.expense) > 0)) return false;
+    if (src && t.source !== src) return false;
+    return true;
+  });
+  renderTransactions();
+}
+
+function renderTransactions() {
+  const el = document.getElementById('allTransTable');
+  if (!filteredTxns.length) { el.innerHTML='<div class="empty"><p>Ingen transaksjoner</p></div>'; return; }
+  const kontoOpts = Object.values(accounts).map(a=>`<option value="${a.code}">${a.code} ${a.name}</option>`).join('');
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th class="cb-cell"><input type="checkbox" onchange="toggleAll(this)"></th>
+      <th>Dato</th><th>Konto</th><th>Beskrivelse</th>
+      <th class="r">Inn</th><th class="r">Ut</th><th class="r">Saldo</th><th>Kilde</th>
+    </tr></thead>
+    <tbody>
+    ${filteredTxns.map(t => {
+      const sel = selectedIds.has(t.id) ? 'selected' : '';
+      const cls = t.source === 'Vipps' ? 'vipps-row' : '';
+      return `<tr class="${cls} ${sel}" data-id="${t.id}">
+        <td class="cb-cell"><input type="checkbox" ${sel?'checked':''} onchange="toggleRow(${t.id},this)"></td>
+        <td class="dim">${fmtDate(t.date)}</td>
+        <td><span class="konto-cell" onclick="startEditKonto(${t.id},this)">${t.account_code} ${t.account_name||''}</span></td>
+        <td>${esc(t.description||'')}</td>
+        <td class="r in">${parseFloat(t.income)>0?nok(t.income):''}</td>
+        <td class="r out">${parseFloat(t.expense)>0?nok(t.expense):''}</td>
+        <td class="r bal dim">${t.balance?nok(t.balance):''}</td>
+        <td><span class="badge badge-${(t.source||'bank').toLowerCase()}">${t.source||'Bank'}</span></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function startEditKonto(id, el) {
+  const accs = Object.values(accounts);
+  const sel = document.createElement('select');
+  sel.className = 'konto-select';
+  sel.innerHTML = accs.map(a=>`<option value="${a.code}">${a.code} ${a.name}</option>`).join('');
+  const t = allTxns.find(x=>x.id===id);
+  if (t) sel.value = t.account_code;
+  sel.onchange = async () => {
+    const code = sel.value;
+    const name = accounts[code]?.name || '';
+    await apiPut(`/api/transactions/${id}`, { account_code: code, account_name: name });
+    if (t) { t.account_code = code; t.account_name = name; }
+    renderTransactions();
+  };
+  sel.onblur = () => renderTransactions();
+  el.replaceWith(sel);
+  sel.focus();
+}
+
+function toggleRow(id, cb) {
+  if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+  const tr = cb.closest('tr');
+  tr.classList.toggle('selected', cb.checked);
+  updateBulkBar();
+}
+
+function toggleAll(masterCb) {
+  filteredTxns.forEach(t => { if (masterCb.checked) selectedIds.add(t.id); else selectedIds.delete(t.id); });
+  renderTransactions();
+  updateBulkBar();
+}
+
+function clearSelection() { selectedIds.clear(); renderTransactions(); updateBulkBar(); }
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  bar.classList.toggle('show', selectedIds.size > 0);
+  document.getElementById('bulkCount').textContent = selectedIds.size;
+}
+
+function populateBulkKonto() {
+  const sel = document.getElementById('bulkKonto');
+  sel.innerHTML = Object.values(accounts).map(a=>`<option value="${a.code}">${a.code} ${a.name}</option>`).join('');
+}
+
+async function applyBulkKonto() {
+  const code = document.getElementById('bulkKonto').value;
+  const name = accounts[code]?.name || '';
+  await apiPost('/api/transactions/bulk-update', { ids: [...selectedIds], account_code: code, account_name: name });
+  for (const id of selectedIds) {
+    const t = allTxns.find(x=>x.id===id);
+    if (t) { t.account_code = code; t.account_name = name; }
+  }
+  clearSelection();
+  renderTransactions();
+}
+
+// ===== KATEGORIER =====
+function renderCategories() {
+  if (!dashData) return;
+  const byAcc = dashData.by_account;
+  const incRows = byAcc.filter(a => a.income > 0).sort((a,b) => b.income - a.income);
+  const expRows = byAcc.filter(a => a.expense > 0).sort((a,b) => b.expense - a.expense);
+  const maxInc = Math.max(...incRows.map(r=>r.income), 1);
+  const maxExp = Math.max(...expRows.map(r=>r.expense), 1);
+
+  document.getElementById('katIncome').innerHTML = `<div class="kat-section">
+    ${incRows.map(r=>`<div class="kat-bar"><span class="label">${r.code} ${r.name}</span><div class="bar-wrap"><div class="bar bar-in" style="width:${r.income/maxInc*100}%"></div></div><span class="amount in">${nok(r.income)}</span></div>`).join('')}
+  </div>`;
+
+  document.getElementById('katExpense').innerHTML = `<div class="kat-section">
+    ${expRows.map(r=>`<div class="kat-bar"><span class="label">${r.code} ${r.name}</span><div class="bar-wrap"><div class="bar bar-out" style="width:${r.expense/maxExp*100}%"></div></div><span class="amount out">${nok(r.expense)}</span></div>`).join('')}
+  </div>`;
+
+  const all = byAcc.sort((a,b)=>a.code.localeCompare(b.code));
+  document.getElementById('katSummaryTable').innerHTML = `<table>
+    <thead><tr><th>Kode</th><th>Konto</th><th>Type</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Netto</th></tr></thead>
+    <tbody>${all.map(r=>`<tr><td class="dim">${r.code}</td><td>${r.name}</td><td class="dim">${accounts[r.code]?.type||''}</td>
+      <td class="r in">${r.income?nok(r.income):''}</td><td class="r out">${r.expense?nok(r.expense):''}</td>
+      <td class="r ${r.income-r.expense>=0?'act-pos':'act-neg'}">${nok(r.income-r.expense)}</td></tr>`).join('')}
+    </tbody></table>`;
+}
+
+function renderActivities() {
+  if (!dashData) return;
+  const acts = dashData.activities;
+  const el = document.getElementById('activityTable');
+  if (!acts.length) { el.innerHTML='<div class="empty"><p>Ingen aktivitetsdata</p></div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead>
+    <tbody>${acts.map(a=>`
+      <tr class="${a.income>0?'act-in':''}"><td colspan="4" style="padding-bottom:0;font-weight:600;padding-top:0.6rem">${a.name}</td></tr>
+      <tr>
+        <td class="dim" style="padding-left:1.2rem">Sammendrag</td>
+        <td class="r in">${a.income?nok(a.income):''}</td>
+        <td class="r out">${a.expense?nok(a.expense):''}</td>
+        <td class="r act-net ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+// ===== IMPORT =====
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+async function handleFiles(files) {
+  if (!files.length) return;
+  const logEl = document.getElementById('importLog');
+  logEl.innerHTML = '<div class="log-item info">Laster opp...</div>';
+
+  const fd = new FormData();
+  fd.append('year', currentYear);
+  for (const f of files) fd.append('files', f);
+
+  const r = await fetch('/api/import', { method: 'POST', body: fd });
+  const data = await r.json();
+  logEl.innerHTML = '';
+  for (const entry of data.log) {
+    const cls = entry.ok ? 'ok' : 'err';
+    const msg = entry.ok
+      ? `${entry.file}: ${entry.added} lagt til, ${entry.skipped} duplikater hoppet over (${entry.type})`
+      : `${entry.file}: ${entry.message}`;
+    logEl.innerHTML += `<div class="log-item ${cls}">${msg}</div>`;
+  }
+
+  // Refresh data
+  await Promise.all([loadDashboard(), loadTransactions()]);
+}
+
+// ===== BUDGETS =====
+let budgets = [];
+
+async function loadBudgets() {
+  budgets = await apiFetch(`/api/budgets?year=${currentYear}`);
+  renderBudgetCards();
+}
+
+function renderBudgetCards() {
+  const el = document.getElementById('budgetCards');
+  const empty = document.getElementById('budgetEmpty');
+  if (!budgets.length) { el.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  el.innerHTML = budgets.map(b => {
+    const total = (b.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+    return `<div class="budget-card" onclick="editBudget(${b.id})">
+      <h3>${esc(b.name)}</h3>
+      <div class="bc-meta">${b.date||''} · ${b.expected_participants} deltakere</div>
+      <div class="bc-sum">${nok(total)} totalt</div>
+    </div>`;
+  }).join('');
+}
+
+function showBudgetList() {
+  document.getElementById('budsjettList').style.display='block';
+  document.getElementById('budsjettEditor').style.display='none';
+}
+
+function newBudget() {
+  currentBudgetId = null;
+  document.getElementById('budgetEditorTitle').textContent = 'Nytt budsjett';
+  document.getElementById('budgetName').value = '';
+  document.getElementById('budgetDate').value = '';
+  document.getElementById('budgetExpected').value = 9;
+  document.getElementById('budgetMin').value = 6;
+  document.getElementById('budgetMax').value = 12;
+  document.getElementById('costTableBody').innerHTML = '';
+  document.getElementById('budgetResults').style.display = 'none';
+  document.getElementById('budgetDeleteBtn').style.display = 'none';
+  document.getElementById('budsjettList').style.display = 'none';
+  document.getElementById('budsjettEditor').style.display = 'block';
+}
+
+function editBudget(id) {
+  const b = budgets.find(x=>x.id===id);
+  if (!b) return;
+  currentBudgetId = id;
+  document.getElementById('budgetEditorTitle').textContent = b.name;
+  document.getElementById('budgetName').value = b.name;
+  document.getElementById('budgetDate').value = b.date||'';
+  document.getElementById('budgetExpected').value = b.expected_participants;
+  document.getElementById('budgetMin').value = b.min_participants;
+  document.getElementById('budgetMax').value = b.max_participants;
+  document.getElementById('budgetDeleteBtn').style.display = 'inline-block';
+
+  const tbody = document.getElementById('costTableBody');
+  tbody.innerHTML = '';
+  for (const c of (b.costs||[])) addCostRow(c);
+  recalcBudget();
+  document.getElementById('budsjettList').style.display = 'none';
+  document.getElementById('budsjettEditor').style.display = 'block';
+}
+
+function addCostRow(c={}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="text" value="${esc(c.desc||'')}" placeholder="Beskrivelse" oninput="recalcBudget()"></td>
+    <td><select onchange="recalcBudget()"><option value="fixed" ${c.type==='fixed'?'selected':''}>Fast</option><option value="variable" ${c.type==='variable'?'selected':''}>Per person</option></select></td>
+    <td><input type="number" class="narrow" value="${c.amount||''}" placeholder="0" oninput="recalcBudget()"></td>
+    <td><button class="btn-del" onclick="this.closest('tr').remove();recalcBudget()">✕</button></td>`;
+  document.getElementById('costTableBody').appendChild(tr);
+}
+
+function recalcBudget() {
+  const rows = [...document.getElementById('costTableBody').querySelectorAll('tr')];
+  let fixed = 0, varPer = 0;
+  for (const r of rows) {
+    const typ = r.querySelector('select').value;
+    const amt = parseFloat(r.querySelectorAll('input')[1].value) || 0;
+    if (typ === 'fixed') fixed += amt; else varPer += amt;
+  }
+  const exp = parseInt(document.getElementById('budgetExpected').value) || 1;
+  const min = parseInt(document.getElementById('budgetMin').value) || 1;
+  const max = parseInt(document.getElementById('budgetMax').value) || exp;
+  const egenandel = fixed / exp + varPer;
+  document.getElementById('resFixed').textContent = nok(fixed);
+  document.getElementById('resPerPerson').textContent = nok(varPer);
+  document.getElementById('resExpLabel').textContent = exp;
+  document.getElementById('resEgenandel').textContent = nok(egenandel);
+  const breakEven = varPer > 0 ? Math.ceil(fixed / (egenandel - varPer)) : (fixed > 0 ? '∞' : 0);
+  document.getElementById('resBreakEven').textContent = breakEven;
+  document.getElementById('budgetResults').style.display = 'block';
+
+  const tbody = document.getElementById('participantRows');
+  tbody.innerHTML = '';
+  for (let n = min; n <= max; n++) {
+    const eg = fixed / n + varPer;
+    const tot = eg * n;
+    const res = tot - fixed - varPer * n;
+    const cls = n === exp ? 'highlight' : (n === Math.ceil(breakEven) ? 'breakeven' : '');
+    tbody.innerHTML += `<tr class="${cls}"><td>${n}</td><td>${nok(eg)}</td><td>${nok(tot)}</td><td>${nok(res)}</td></tr>`;
+  }
+}
+
+async function saveBudget() {
+  const costs = [...document.getElementById('costTableBody').querySelectorAll('tr')].map(r => ({
+    desc:   r.querySelectorAll('input')[0].value,
+    type:   r.querySelector('select').value,
+    amount: parseFloat(r.querySelectorAll('input')[1].value) || 0,
+  }));
+  const body = {
+    year: currentYear, name: document.getElementById('budgetName').value,
+    date: document.getElementById('budgetDate').value || null,
+    expected_participants: parseInt(document.getElementById('budgetExpected').value),
+    min_participants: parseInt(document.getElementById('budgetMin').value),
+    max_participants: parseInt(document.getElementById('budgetMax').value),
+    costs,
+  };
+  if (currentBudgetId) await apiPut(`/api/budgets/${currentBudgetId}`, body);
+  else await apiPost('/api/budgets', body);
+  await loadBudgets();
+  showBudgetList();
+}
+
+async function deleteBudget() {
+  if (!confirm('Slette dette budsjettet?')) return;
+  await apiDelete(`/api/budgets/${currentBudgetId}`);
+  await loadBudgets();
+  showBudgetList();
+}
+
+// ===== SETTINGS =====
+let localAccounts = [], localRules = [];
+
+async function loadSettings() {
+  const [accs, rls] = await Promise.all([apiFetch('/api/accounts'), apiFetch('/api/rules')]);
+  localAccounts = accs;
+  localRules    = rls;
+  renderKontoplan();
+  renderRules();
+}
+
+function showSettingTab(t) {
+  currentSettingTab = t;
+  document.querySelectorAll('.tabs-inner a').forEach((a,i) => a.classList.toggle('active', ['kontoplan','regler'][i]===t));
+  document.getElementById('stab-kontoplan').style.display = t==='kontoplan' ? 'block' : 'none';
+  document.getElementById('stab-regler').style.display    = t==='regler'    ? 'block' : 'none';
+}
+
+function renderKontoplan() {
+  const el = document.getElementById('kontoplanEditor');
+  el.innerHTML = `<table class="setting-table">
+    <thead><tr><th>Kode</th><th>Navn</th><th>Type</th><th></th></tr></thead>
+    <tbody>
+    ${localAccounts.map(a=>`<tr data-code="${a.code}">
+      <td><input value="${a.code}" style="width:60px"></td>
+      <td><input value="${esc(a.name)}"></td>
+      <td><select><option ${a.type==='Inntekt'?'selected':''}>Inntekt</option><option ${a.type==='Utgift'?'selected':''}>Utgift</option></select></td>
+      <td><button class="btn-sm btn-del" onclick="removeKonto('${a.code}')">Slett</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function addKonto() {
+  localAccounts.push({ code:'', name:'', type:'Utgift' });
+  renderKontoplan();
+}
+
+function removeKonto(code) {
+  localAccounts = localAccounts.filter(a => a.code !== code);
+  renderKontoplan();
+}
+
+function renderRules() {
+  const el = document.getElementById('ruleEditor');
+  el.innerHTML = `<table class="setting-table">
+    <thead><tr><th>Type</th><th>Felt</th><th>Søketekst</th><th>Konto</th><th>Beskrivelse</th><th></th></tr></thead>
+    <tbody>
+    ${localRules.map((r,i)=>`<tr>
+      <td><select data-i="${i}" data-f="source_type"><option value="bank_income" ${r.source_type==='bank_income'?'selected':''}>Bank inn</option><option value="bank_expense" ${r.source_type==='bank_expense'?'selected':''}>Bank ut</option><option value="vipps" ${r.source_type==='vipps'?'selected':''}>Vipps</option></select></td>
+      <td><select data-i="${i}" data-f="match_field"><option value="combined" ${r.match_field==='combined'?'selected':''}>Navn+tittel</option><option value="pay_type" ${r.match_field==='pay_type'?'selected':''}>Betalingstype</option></select></td>
+      <td><input value="${esc(r.match_text)}" data-i="${i}" data-f="match_text"></td>
+      <td><input value="${esc(r.account_code)}" data-i="${i}" data-f="account_code" style="width:60px"></td>
+      <td><input value="${esc(r.description||'')}" data-i="${i}" data-f="description"></td>
+      <td><button class="btn-sm btn-del" onclick="removeRule(${i})">Slett</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function addRule() {
+  localRules.push({ source_type:'bank_expense', match_field:'combined', match_text:'', account_code:'4900', description:'' });
+  renderRules();
+}
+
+function removeRule(i) { localRules.splice(i,1); renderRules(); }
+
+async function saveSettings() {
+  // Collect edits from kontoplan table
+  const kRows = document.querySelectorAll('#kontoplanEditor tbody tr');
+  const newAccounts = [...kRows].map(tr => {
+    const inputs = tr.querySelectorAll('input');
+    return { code: inputs[0].value.trim(), name: inputs[1].value.trim(), type: tr.querySelector('select').value };
+  }).filter(a => a.code);
+
+  // Collect rule edits
+  const rRows = document.querySelectorAll('#ruleEditor tbody tr');
+  const newRules = [...rRows].map(tr => {
+    const inputs = tr.querySelectorAll('input,select');
+    return {
+      source_type:  inputs[0].value, match_field: inputs[1].value,
+      match_text:   inputs[2].value.trim(), account_code: inputs[3].value.trim(),
+      description:  inputs[4].value.trim(),
+    };
+  }).filter(r => r.match_text);
+
+  // Sync accounts: upsert via PUT, delete removed
+  for (const a of newAccounts) {
+    const existing = localAccounts.find(x => x.code === a.code);
+    if (existing) await apiPut(`/api/accounts/${a.code}`, a);
+    else await apiPost('/api/accounts', a);
+  }
+  const removedCodes = localAccounts.map(a=>a.code).filter(c=>!newAccounts.find(a=>a.code===c));
+  for (const c of removedCodes) await apiDelete(`/api/accounts/${c}`);
+
+  // Rebuild rules: delete all, re-insert
+  for (const r of localRules) if (r.id) await apiDelete(`/api/rules/${r.id}`);
+  for (const r of newRules) await apiPost('/api/rules', r);
+
+  await loadAccounts();
+  await loadSettings();
+  const msg = document.getElementById('settingsSavedMsg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2500);
+}
+
+// ===== NAV / TABS =====
+let currentTab = 'dashboard';
+
+function showTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  const tab = document.getElementById(`tab-${name}`);
+  if (tab) tab.classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => {
+    if (a.getAttribute('onclick')?.includes(`'${name}'`)) a.classList.add('active');
+  });
+
+  // Lazy-render on first visit
+  if (name === 'kategorier')    renderCategories();
+  if (name === 'aktiviteter')   renderActivities();
+  if (name === 'budsjett')      loadBudgets();
+  if (name === 'innstillinger') loadSettings();
+}
+
+async function logout() {
+  await apiPost('/auth/logout', {});
+  window.location.href = '/login.html';
+}
+
+init();
+</script>
+</body>
+</html>

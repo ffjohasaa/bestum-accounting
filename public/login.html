@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bestum Regnskap — Logg inn</title>
+<style>
+:root { --navy:#0D47A1; --blue:#1565C0; --light:#f0f4f8; --border:#e0e0e0; --red:#C62828; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--light); display:flex; align-items:center; justify-content:center; min-height:100vh; }
+.card { background:white; border-radius:14px; padding:2.5rem 2rem; width:360px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+h1 { color:var(--navy); font-size:1.3rem; margin-bottom:0.3rem; }
+p { color:#607D8B; font-size:0.85rem; margin-bottom:1.8rem; }
+label { display:block; font-size:0.82rem; color:#607D8B; margin-bottom:0.25rem; }
+input { width:100%; padding:0.55rem 0.8rem; border:1px solid var(--border); border-radius:8px; font-size:0.95rem; margin-bottom:1rem; }
+input:focus { outline:none; border-color:var(--blue); }
+button { width:100%; background:var(--navy); color:white; border:none; padding:0.65rem; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:600; }
+button:hover { background:var(--blue); }
+.err { color:var(--red); font-size:0.85rem; margin-top:0.8rem; display:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Bestum Regnskap</h1>
+  <p>Logg inn for å se regnskapet</p>
+  <form id="loginForm">
+    <label>Brukernavn</label>
+    <input type="text" id="username" value="bestum-admin" autocomplete="username">
+    <label>Passord</label>
+    <input type="password" id="password" autocomplete="current-password">
+    <button type="submit">Logg inn</button>
+    <div class="err" id="errMsg"></div>
+  </form>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.textContent = 'Logger inn...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value })
+    });
+    const d = await r.json();
+    if (d.ok) { window.location.href = '/'; }
+    else { document.getElementById('errMsg').style.display='block'; document.getElementById('errMsg').textContent = d.error || 'Feil ved innlogging'; }
+  } catch(e) { document.getElementById('errMsg').style.display='block'; document.getElementById('errMsg').textContent = 'Nettverksfeil'; }
+  finally { btn.textContent='Logg inn'; btn.disabled=false; }
+});
+</script>
+</body>
+</html>
