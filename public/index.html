@@ -324,6 +324,7 @@ tr.vipps-row:hover td{background:#fff0e0;}
     <div class="tabs-inner">
       <a class="active" onclick="showSettingTab('kontoplan')">Kontoplan</a>
       <a onclick="showSettingTab('regler')">Kategoriregler</a>
+      <a onclick="showSettingTab('aktiviteter-cfg')">Aktiviteter</a>
     </div>
     <div id="stab-kontoplan" class="setting-section">
       <div id="kontoplanEditor"></div>
@@ -332,6 +333,11 @@ tr.vipps-row:hover td{background:#fff0e0;}
     <div id="stab-regler" class="setting-section" style="display:none">
       <div id="ruleEditor"></div>
       <button class="btn-sm btn-add admin-only" onclick="addRule()">+ Ny regel</button>
+    </div>
+    <div id="stab-aktiviteter-cfg" class="setting-section" style="display:none">
+      <p class="setting-help">Definer hvilke kontoer som tilhører hver aktivitet. Brukes i Aktiviteter-fanen og dashboard.</p>
+      <div id="activityCfgEditor"></div>
+      <button class="btn-sm btn-add admin-only" onclick="addActivityCfg()" style="margin-top:0.5rem">+ Ny aktivitet</button>
     </div>
     <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center" class="admin-only">
       <button class="btn-save" onclick="saveSettings()">Lagre endringer</button>
@@ -874,19 +880,52 @@ async function deleteBudget() {
 // ===== SETTINGS =====
 let localAccounts = [], localRules = [];
 
+let localActivities = [];
+
 async function loadSettings() {
-  const [accs, rls] = await Promise.all([apiFetch('/api/accounts'), apiFetch('/api/rules')]);
-  localAccounts = accs;
-  localRules    = rls;
+  const [accs, rls, acts] = await Promise.all([apiFetch('/api/accounts'), apiFetch('/api/rules'), apiFetch(`/api/activities?year=${currentYear}`)]);
+  localAccounts   = accs;
+  localRules      = rls;
+  localActivities = acts;
   renderKontoplan();
   renderRules();
+  renderActivityCfg();
+}
+
+function renderActivityCfg() {
+  const el = document.getElementById('activityCfgEditor');
+  if (!localActivities.length) {
+    el.innerHTML = '<p style="color:var(--gray);font-size:0.85rem">Ingen aktiviteter ennå for dette året.</p>';
+    return;
+  }
+  el.innerHTML = `<table class="setting-table">
+    <thead><tr><th>Navn</th><th>Inntektskontoer (kommaseparert)</th><th>Utgiftskontoer (kommaseparert)</th><th></th></tr></thead>
+    <tbody>
+    ${localActivities.map((a,i) => `<tr>
+      <td><input value="${esc(a.name)}" data-ai="${i}" data-af="name" ${isAdmin?'':'readonly'}></td>
+      <td><input value="${(a.income_accounts||[]).join(',')}" data-ai="${i}" data-af="income_accounts" ${isAdmin?'':'readonly'}></td>
+      <td><input value="${(a.expense_accounts||[]).join(',')}" data-ai="${i}" data-af="expense_accounts" ${isAdmin?'':'readonly'}></td>
+      ${isAdmin ? `<td><button class="btn-sm btn-del" onclick="removeActivityCfg(${i})">Slett</button></td>` : '<td></td>'}
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function addActivityCfg() {
+  localActivities.push({ name: '', income_accounts: [], expense_accounts: [], year: currentYear });
+  renderActivityCfg();
+}
+
+function removeActivityCfg(i) {
+  localActivities.splice(i, 1);
+  renderActivityCfg();
 }
 
 function showSettingTab(t) {
   currentSettingTab = t;
-  document.querySelectorAll('.tabs-inner a').forEach((a,i) => a.classList.toggle('active', ['kontoplan','regler'][i]===t));
-  document.getElementById('stab-kontoplan').style.display = t==='kontoplan' ? 'block' : 'none';
-  document.getElementById('stab-regler').style.display    = t==='regler'    ? 'block' : 'none';
+  document.querySelectorAll('.tabs-inner a').forEach((a,i) => a.classList.toggle('active', ['kontoplan','regler','aktiviteter-cfg'][i]===t));
+  document.getElementById('stab-kontoplan').style.display       = t==='kontoplan'       ? 'block' : 'none';
+  document.getElementById('stab-regler').style.display          = t==='regler'          ? 'block' : 'none';
+  document.getElementById('stab-aktiviteter-cfg').style.display = t==='aktiviteter-cfg' ? 'block' : 'none';
 }
 
 function renderKontoplan() {
@@ -967,6 +1006,22 @@ async function saveSettings() {
   // Rebuild rules: delete all, re-insert
   for (const r of localRules) if (r.id) await apiDelete(`/api/rules/${r.id}`);
   for (const r of newRules) await apiPost('/api/rules', r);
+
+  // Sync activities from editor
+  const actRows = document.querySelectorAll('#activityCfgEditor tbody tr');
+  const newActivities = [...actRows].map(tr => {
+    const inputs = tr.querySelectorAll('input');
+    return {
+      name:             inputs[0].value.trim(),
+      income_accounts:  inputs[1].value.split(',').map(s=>s.trim()).filter(Boolean),
+      expense_accounts: inputs[2].value.split(',').map(s=>s.trim()).filter(Boolean),
+      year:             currentYear,
+    };
+  }).filter(a => a.name);
+
+  // Delete removed, upsert existing
+  for (const a of localActivities) if (a.id) await apiDelete(`/api/activities/${a.id}`);
+  for (const a of newActivities) await apiPost('/api/activities', a);
 
   await loadAccounts();
   await loadSettings();
