@@ -3,7 +3,7 @@ const path = require('path');
 const { Pool } = require('pg');
 try { require('dotenv').config(); } catch(e) {}
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL?.includes('heroku') ? { rejectUnauthorized: false } : false });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false });
 
 async function run() {
   const dir = path.join(__dirname, '..', 'migrations');
