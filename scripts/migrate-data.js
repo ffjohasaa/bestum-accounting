@@ -93,6 +93,10 @@ function readTransactions(wb, year) {
     }
     if (!dateStr) continue;
 
+    const desc0 = String(ws[XLSX.utils.encode_cell({ r: r-1, c: 5 })]?.v || '').toLowerCase();
+    const ref0  = String(ws[XLSX.utils.encode_cell({ r: r-1, c: 2 })]?.v || '').toUpperCase();
+    if (desc0.includes('inngående balanse') || ref0 === 'IB') continue; // opening balance row
+
     const income  = incCell  ? (typeof incCell.v  === 'number' ? incCell.v  : parseFloat(incCell.v)  || 0) : 0;
     const expense = expCell  ? (typeof expCell.v  === 'number' ? expCell.v  : parseFloat(expCell.v) || 0) : 0;
     const kontonr  = ws[XLSX.utils.encode_cell({ r: r-1, c: 3 })]?.v || '';
