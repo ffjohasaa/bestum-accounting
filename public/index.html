@@ -381,10 +381,12 @@ async function init() {
 }
 
 function applyRoleUI() {
-  // Hide all admin-only elements for readonly users
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = isAdmin ? '' : 'none';
-  });
+  if (!isAdmin) {
+    // Add a stylesheet rule so admin-only elements are truly hidden
+    const style = document.createElement('style');
+    style.textContent = '.admin-only { display: none !important; }';
+    document.head.appendChild(style);
+  }
 }
 
 // ===== API HELPERS =====
