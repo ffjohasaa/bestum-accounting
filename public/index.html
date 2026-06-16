@@ -880,13 +880,14 @@ async function deleteBudget() {
 // ===== SETTINGS =====
 let localAccounts = [], localRules = [];
 
-let localActivities = [];
+let localActivities = [], removedActivityIds = [];
 
 async function loadSettings() {
   const [accs, rls, acts] = await Promise.all([apiFetch('/api/accounts'), apiFetch('/api/rules'), apiFetch(`/api/activities?year=${currentYear}`)]);
-  localAccounts   = accs;
-  localRules      = rls;
-  localActivities = acts;
+  localAccounts      = accs;
+  localRules         = rls;
+  localActivities    = acts;
+  removedActivityIds = [];
   renderKontoplan();
   renderRules();
   renderActivityCfg();
@@ -916,7 +917,8 @@ function addActivityCfg() {
 }
 
 function removeActivityCfg(i) {
-  localActivities.splice(i, 1);
+  const removed = localActivities.splice(i, 1)[0];
+  if (removed?.id) removedActivityIds.push(removed.id);
   renderActivityCfg();
 }
 
@@ -1009,7 +1011,6 @@ async function saveSettings() {
 
   // Sync activities: PUT existing, POST new, DELETE removed
   const actRows = [...document.querySelectorAll('#activityCfgEditor tbody tr')];
-  const remainingIds = new Set();
   const actSaveCalls = [];
   for (const tr of actRows) {
     const inputs = tr.querySelectorAll('input');
@@ -1023,13 +1024,12 @@ async function saveSettings() {
     };
     if (!data.name) continue;
     if (existing?.id) {
-      remainingIds.add(existing.id);
       actSaveCalls.push(apiPut(`/api/activities/${existing.id}`, data));
     } else {
       actSaveCalls.push(apiPost('/api/activities', data));
     }
   }
-  for (const a of localActivities) if (a.id && !remainingIds.has(a.id)) await apiDelete(`/api/activities/${a.id}`);
+  for (const id of removedActivityIds) await apiDelete(`/api/activities/${id}`);
   await Promise.all(actSaveCalls);
 
   await loadAccounts();
