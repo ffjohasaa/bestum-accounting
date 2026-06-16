@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
         if (inCodes.includes(t.account_code))  inc += parseFloat(t.income || 0);
         if (outCodes.includes(t.account_code)) exp += parseFloat(t.expense || 0);
       }
-      return { name: a.name, income: inc, expense: exp, result: inc - exp, category: a.category || 'activity' };
+      return { name: a.name, income: inc, expense: exp, result: inc - exp, category: a.category || 'activity', income_accounts: inCodes, expense_accounts: outCodes };
     }).filter(a => a.income > 0 || a.expense > 0);
 
     const allDefs    = activityDefs;
