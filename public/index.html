@@ -190,6 +190,9 @@ tr.vipps-row:hover td{background:#fff0e0;}
 
 <!-- DASHBOARD -->
 <div id="tab-dashboard" class="tab active">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:0.8rem">
+    <button class="btn-primary" onclick="exportReport()" style="font-size:0.85rem;padding:0.4rem 1rem">&#8595; Eksporter rapport</button>
+  </div>
   <div id="balanceBox" class="balance-box" style="display:none"></div>
   <div class="kpi-grid" id="kpiGrid"></div>
   <div class="grid-2">
@@ -990,6 +993,10 @@ function showTab(name) {
   if (name === 'aktiviteter')   renderActivities();
   if (name === 'budsjett')      loadBudgets();
   if (name === 'innstillinger') loadSettings();
+}
+
+function exportReport() {
+  window.location.href = `/api/export?year=${currentYear}`;
 }
 
 async function logout() {

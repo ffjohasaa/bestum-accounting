@@ -44,6 +44,7 @@ app.use('/api/budgets',      requireAuth, requireWrite, require('./routes/budget
 app.use('/api/years',        requireAuth, requireWrite, require('./routes/years'));
 app.use('/api/settings',     requireAuth, requireWrite, require('./routes/settings'));
 app.use('/api/import',       requireAuth, requireWrite, require('./routes/import'));
+app.use('/api/export',       requireAuth, require('./routes/export'));
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, '..', 'public')));
