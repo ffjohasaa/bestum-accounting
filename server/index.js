@@ -24,19 +24,26 @@ function requireAuth(req, res, next) {
   res.status(401).json({ error: 'Ikke innlogget' });
 }
 
+function requireWrite(req, res, next) {
+  if (req.session?.role === 'readonly' && req.method !== 'GET') {
+    return res.status(403).json({ error: 'Lesetilgang — kan ikke gjøre endringer' });
+  }
+  next();
+}
+
 // Public routes
 app.use('/auth', require('./routes/auth'));
 
-// Protected API
+// Protected API (requireWrite blocks mutations for readonly role)
 app.use('/api/dashboard',    requireAuth, require('./routes/dashboard'));
-app.use('/api/transactions', requireAuth, require('./routes/transactions'));
-app.use('/api/accounts',     requireAuth, require('./routes/accounts'));
-app.use('/api/rules',        requireAuth, require('./routes/rules'));
-app.use('/api/activities',   requireAuth, require('./routes/activities'));
-app.use('/api/budgets',      requireAuth, require('./routes/budgets'));
-app.use('/api/years',        requireAuth, require('./routes/years'));
-app.use('/api/settings',     requireAuth, require('./routes/settings'));
-app.use('/api/import',       requireAuth, require('./routes/import'));
+app.use('/api/transactions', requireAuth, requireWrite, require('./routes/transactions'));
+app.use('/api/accounts',     requireAuth, requireWrite, require('./routes/accounts'));
+app.use('/api/rules',        requireAuth, requireWrite, require('./routes/rules'));
+app.use('/api/activities',   requireAuth, requireWrite, require('./routes/activities'));
+app.use('/api/budgets',      requireAuth, requireWrite, require('./routes/budgets'));
+app.use('/api/years',        requireAuth, requireWrite, require('./routes/years'));
+app.use('/api/settings',     requireAuth, requireWrite, require('./routes/settings'));
+app.use('/api/import',       requireAuth, requireWrite, require('./routes/import'));
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, '..', 'public')));

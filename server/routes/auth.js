@@ -1,27 +1,20 @@
 const express = require('express');
-const bcrypt  = require('bcryptjs');
 const router  = express.Router();
 
-// Hash is computed once at startup from env var
-let adminHash = null;
-async function getHash() {
-  if (!adminHash) {
-    const pwd = process.env.ADMIN_PASSWORD || 'bestum2025';
-    adminHash = await bcrypt.hash(pwd, 10);
-  }
-  return adminHash;
-}
-// Pre-warm on module load
-getHash();
+const USERS = {
+  'bestum-admin': { passwordEnv: 'ADMIN_PASSWORD',    default: 'bestum2025', role: 'admin' },
+  'bestum':       { passwordEnv: 'READONLY_PASSWORD', default: 'bestum',     role: 'readonly' },
+};
 
-router.post('/login', async (req, res) => {
+router.post('/login', (req, res) => {
   const { username, password } = req.body;
-  if (username !== 'bestum-admin') return res.status(401).json({ error: 'Ugyldig bruker' });
-  const pwd = process.env.ADMIN_PASSWORD || 'bestum2025';
-  const ok  = await bcrypt.compare(password, await getHash()) || password === pwd;
-  if (!ok) return res.status(401).json({ error: 'Feil passord' });
-  req.session.user = 'bestum-admin';
-  res.json({ ok: true });
+  const user = USERS[username];
+  if (!user) return res.status(401).json({ error: 'Ugyldig bruker' });
+  const expected = process.env[user.passwordEnv] || user.default;
+  if (password !== expected) return res.status(401).json({ error: 'Feil passord' });
+  req.session.user = username;
+  req.session.role = user.role;
+  res.json({ ok: true, role: user.role });
 });
 
 router.post('/logout', (req, res) => {
@@ -30,7 +23,7 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/me', (req, res) => {
-  res.json({ user: req.session.user || null });
+  res.json({ user: req.session.user || null, role: req.session.role || null });
 });
 
 module.exports = router;
