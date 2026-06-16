@@ -944,7 +944,7 @@ async function deleteBudget() {
 }
 
 // ===== SETTINGS =====
-let localAccounts = [], localRules = [];
+let localAccounts = [], localRules = [], removedRuleIds = [];
 
 let localActivities = [], removedActivityIds = [];
 
@@ -952,6 +952,7 @@ async function loadSettings() {
   const [accs, rls, acts] = await Promise.all([apiFetch('/api/accounts'), apiFetch('/api/rules'), apiFetch(`/api/activities?year=${currentYear}`)]);
   localAccounts      = accs;
   localRules         = rls;
+  removedRuleIds     = [];
   localActivities    = acts;
   removedActivityIds = [];
   renderKontoplan();
@@ -1045,7 +1046,11 @@ function addRule() {
   renderRules();
 }
 
-function removeRule(i) { localRules.splice(i,1); renderRules(); }
+function removeRule(i) {
+  const removed = localRules.splice(i, 1)[0];
+  if (removed?.id) removedRuleIds.push(removed.id);
+  renderRules();
+}
 
 async function saveSettings() {
   // Collect edits from kontoplan table
@@ -1075,9 +1080,15 @@ async function saveSettings() {
   const removedCodes = localAccounts.map(a=>a.code).filter(c=>!newAccounts.find(a=>a.code===c));
   for (const c of removedCodes) await apiDelete(`/api/accounts/${c}`);
 
-  // Rebuild rules: delete all, re-insert
-  for (const r of localRules) if (r.id) await apiDelete(`/api/rules/${r.id}`);
-  for (const r of newRules) await apiPost('/api/rules', r);
+  // Rules: DELETE removed, PUT existing, POST new
+  for (const id of removedRuleIds) await apiDelete(`/api/rules/${id}`);
+  const ruleSaveCalls = [];
+  for (const [i, r] of newRules.entries()) {
+    const existing = localRules[i];
+    if (existing?.id) ruleSaveCalls.push(apiPut(`/api/rules/${existing.id}`, r));
+    else ruleSaveCalls.push(apiPost('/api/rules', r));
+  }
+  await Promise.all(ruleSaveCalls);
 
   // Sync activities: PUT existing, POST new, DELETE removed
   const actRows = [...document.querySelectorAll('#activityCfgEditor tbody tr')];
