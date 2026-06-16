@@ -27,6 +27,8 @@ router.put('/:code', async (req, res) => {
       'UPDATE accounts SET name=$1, type=$2, color=$3 WHERE code=$4 RETURNING *',
       [name, type, color, req.params.code]
     );
+    // Keep transaction account_name in sync
+    await db.query('UPDATE transactions SET account_name=$1 WHERE account_code=$2', [name, req.params.code]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
