@@ -3,22 +3,22 @@ const db      = require('../db');
 const router  = express.Router();
 
 const DEFAULT_ACTIVITIES = [
-  { name: 'Vikentokt',             income_accounts: ['3200'],                        expense_accounts: ['4100'] },
-  { name: 'Landsleir',             income_accounts: ['3210'],                        expense_accounts: ['4110','4410'] },
-  { name: 'Juletur',               income_accounts: ['3220'],                        expense_accounts: ['4120'] },
-  { name: 'Nabbentur',             income_accounts: ['3230'],                        expense_accounts: ['4130'] },
-  { name: 'Andre turer',           income_accounts: [],                              expense_accounts: ['4140'] },
-  { name: 'Loddsalg/salg',         income_accounts: ['3400','3410','3420'],          expense_accounts: [] },
-  { name: 'Forsikring (Gjensidige)',income_accounts: ['3330'],                        expense_accounts: ['4300'] },
-  { name: 'Båtdrift',              income_accounts: [],                              expense_accounts: ['5100','5110','5120','5130','5140','5150','5160','5170','5190'] },
-  { name: 'Kahytten/lokale',       income_accounts: [],                              expense_accounts: ['4200','4210','4220','4800'] },
-  { name: 'Kontingent',            income_accounts: ['3100'],                        expense_accounts: ['4400'] },
-  { name: 'Kretskontingent',       income_accounts: [],                              expense_accounts: ['4420'] },
-  { name: 'Tilskudd/støtte',       income_accounts: ['3300','3310','3320','3340','3350'], expense_accounts: [] },
-  { name: 'Grasrot/Spond/renter',  income_accounts: ['3500','3510','3600'],          expense_accounts: [] },
-  { name: 'Tropp/gruppe',          income_accounts: [],                              expense_accounts: ['4500','4510'] },
-  { name: 'Admin/gebyrer',         income_accounts: [],                              expense_accounts: ['4600','4700'] },
-  { name: 'Andre',                 income_accounts: ['3900'],                        expense_accounts: ['4900'] },
+  { name: 'Vikentokt',              category: 'activity', income_accounts: ['3200'],                             expense_accounts: ['4100'] },
+  { name: 'Landsleir',              category: 'activity', income_accounts: ['3210'],                             expense_accounts: ['4110','4410'] },
+  { name: 'Juletur',                category: 'activity', income_accounts: ['3220'],                             expense_accounts: ['4120'] },
+  { name: 'Nabbentur',              category: 'activity', income_accounts: ['3230'],                             expense_accounts: ['4130'] },
+  { name: 'Andre turer',            category: 'activity', income_accounts: [],                                   expense_accounts: ['4140'] },
+  { name: 'Loddsalg/salg',          category: 'activity', income_accounts: ['3400','3410','3420'],               expense_accounts: [] },
+  { name: 'Forsikring (Gjensidige)', category: 'activity', income_accounts: ['3330'],                            expense_accounts: ['4300'] },
+  { name: 'Kontingent',             category: 'activity', income_accounts: ['3100'],                             expense_accounts: ['4400'] },
+  { name: 'Tilskudd/støtte',        category: 'activity', income_accounts: ['3300','3310','3320','3340','3350'], expense_accounts: [] },
+  { name: 'Grasrot/Spond/renter',   category: 'activity', income_accounts: ['3500','3510','3600'],               expense_accounts: [] },
+  { name: 'Andre',                  category: 'activity', income_accounts: ['3900'],                             expense_accounts: ['4900'] },
+  { name: 'Kahytten/lokale',        category: 'drift',    income_accounts: [],                                   expense_accounts: ['4200','4210','4220','4800'] },
+  { name: 'Båtdrift',               category: 'drift',    income_accounts: [],                                   expense_accounts: ['5100','5110','5120','5130','5140','5150','5160','5170','5190'] },
+  { name: 'Kretskontingent',        category: 'drift',    income_accounts: [],                                   expense_accounts: ['4420'] },
+  { name: 'Tropp/gruppe',           category: 'drift',    income_accounts: [],                                   expense_accounts: ['4500','4510'] },
+  { name: 'Admin/gebyrer',          category: 'drift',    income_accounts: [],                                   expense_accounts: ['4600','4700'] },
 ];
 
 // GET /api/dashboard?year=2025
@@ -59,8 +59,8 @@ router.get('/', async (req, res) => {
       byAccount[code].expense += parseFloat(t.expense || 0);
     }
 
-    // Activity summary driven by DB activities (or defaults)
-    const activities = activityDefs.map(a => {
+    // Split into program activities and drift groups
+    const buildSummary = (defs) => defs.map(a => {
       const inCodes  = a.income_accounts  || [];
       const outCodes = a.expense_accounts || [];
       let inc = 0, exp = 0;
@@ -68,8 +68,12 @@ router.get('/', async (req, res) => {
         if (inCodes.includes(t.account_code))  inc += parseFloat(t.income || 0);
         if (outCodes.includes(t.account_code)) exp += parseFloat(t.expense || 0);
       }
-      return { name: a.name, income: inc, expense: exp, result: inc - exp };
+      return { name: a.name, income: inc, expense: exp, result: inc - exp, category: a.category || 'activity' };
     }).filter(a => a.income > 0 || a.expense > 0);
+
+    const allDefs    = activityDefs;
+    const actDefs    = allDefs.filter(a => (a.category || 'activity') === 'activity');
+    const driftDefs  = allDefs.filter(a => (a.category || 'activity') === 'drift');
 
     res.json({
       year: parseInt(year),
@@ -80,7 +84,8 @@ router.get('/', async (req, res) => {
       closing_balance: Math.round(lastBalance * 100) / 100,
       monthly:         months,
       by_account:      Object.values(byAccount),
-      activities,
+      activities:      buildSummary(actDefs),
+      drift:           buildSummary(driftDefs),
       transaction_count: txns.length,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

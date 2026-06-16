@@ -6,18 +6,18 @@ router.get('/', async (req, res) => {
   try {
     const { year } = req.query;
     const { rows } = year
-      ? await db.query('SELECT * FROM activities WHERE year=$1 ORDER BY name', [year])
-      : await db.query('SELECT * FROM activities ORDER BY year DESC, name');
+      ? await db.query('SELECT * FROM activities WHERE year=$1 ORDER BY category, name', [year])
+      : await db.query('SELECT * FROM activities ORDER BY year DESC, category, name');
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/', async (req, res) => {
   try {
-    const { year, name, description, income_accounts, expense_accounts } = req.body;
+    const { year, name, description, income_accounts, expense_accounts, category } = req.body;
     const { rows } = await db.query(
-      'INSERT INTO activities (year,name,description,income_accounts,expense_accounts) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [year, name, description, income_accounts || [], expense_accounts || []]
+      'INSERT INTO activities (year,name,description,income_accounts,expense_accounts,category) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [year, name, description, income_accounts || [], expense_accounts || [], category || 'activity']
     );
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -25,10 +25,10 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { name, description, income_accounts, expense_accounts } = req.body;
+    const { name, description, income_accounts, expense_accounts, category } = req.body;
     const { rows } = await db.query(
-      'UPDATE activities SET name=$1,description=$2,income_accounts=$3,expense_accounts=$4 WHERE id=$5 RETURNING *',
-      [name, description, income_accounts, expense_accounts, req.params.id]
+      'UPDATE activities SET name=$1,description=$2,income_accounts=$3,expense_accounts=$4,category=$5 WHERE id=$6 RETURNING *',
+      [name, description, income_accounts, expense_accounts, category || 'activity', req.params.id]
     );
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }

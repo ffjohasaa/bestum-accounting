@@ -548,12 +548,22 @@ function renderDashKategorier() {
 }
 
 function renderDashAktiviteter() {
-  const acts = dashData.activities;
+  const acts  = dashData.activities || [];
+  const drift = dashData.drift      || [];
   const el = document.getElementById('dashAktiviteter');
-  if (!acts.length) { el.innerHTML='<p style="color:var(--gray)">Ingen aktivitetsdata</p>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead><tbody>
-    ${acts.map(a=>`<tr><td>${a.name}</td><td class="r in">${a.income?nok(a.income):''}</td><td class="r out">${a.expense?nok(a.expense):''}</td><td class="r ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td></tr>`).join('')}
-  </tbody></table>`;
+  const actRow = a => `<tr><td>${a.name}</td><td class="r in">${a.income?nok(a.income):''}</td><td class="r out">${a.expense?nok(a.expense):''}</td><td class="r ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td></tr>`;
+  let html = '';
+  if (acts.length) html += `<table><thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead><tbody>${acts.map(actRow).join('')}</tbody></table>`;
+  if (drift.length) {
+    const tot = drift.reduce((s,a)=>s+a.expense,0);
+    html += `<p style="font-weight:600;margin:0.8rem 0 0.3rem;color:var(--navy)">Drift</p>
+    <table><thead><tr><th>Post</th><th class="r">Utgift</th></tr></thead><tbody>
+      ${drift.map(a=>`<tr><td>${a.name}</td><td class="r out">${nok(a.expense)}</td></tr>`).join('')}
+      <tr style="font-weight:600;border-top:2px solid var(--border)"><td>Sum drift</td><td class="r out">${nok(tot)}</td></tr>
+    </tbody></table>`;
+  }
+  if (!html) html = '<p style="color:var(--gray)">Ingen aktivitetsdata</p>';
+  el.innerHTML = html;
 }
 
 // ===== TRANSACTIONS =====
@@ -699,22 +709,78 @@ function renderCategories() {
     </tbody></table>`;
 }
 
+let expandedActivities = new Set();
+
 function renderActivities() {
   if (!dashData) return;
-  const acts = dashData.activities;
+  const acts  = dashData.activities || [];
+  const drift = dashData.drift      || [];
   const el = document.getElementById('activityTable');
-  if (!acts.length) { el.innerHTML='<div class="empty"><p>Ingen aktivitetsdata</p></div>'; return; }
-  el.innerHTML = `<table>
-    <thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead>
-    <tbody>${acts.map(a=>`
-      <tr class="${a.income>0?'act-in':''}"><td colspan="4" style="padding-bottom:0;font-weight:600;padding-top:0.6rem">${a.name}</td></tr>
-      <tr>
-        <td class="dim" style="padding-left:1.2rem">Sammendrag</td>
-        <td class="r in">${a.income?nok(a.income):''}</td>
-        <td class="r out">${a.expense?nok(a.expense):''}</td>
-        <td class="r act-net ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td>
-      </tr>`).join('')}
-    </tbody></table>`;
+
+  function activityTxns(a) {
+    const codes = new Set([...(a.income_accounts||[]), ...(a.expense_accounts||[])]);
+    return allTxns.filter(t => codes.has(t.account_code));
+  }
+
+  function drillRow(a, key) {
+    if (!expandedActivities.has(key)) return '';
+    const txns = activityTxns(a);
+    if (!txns.length) return `<tr class="drill-row"><td colspan="4" style="padding-left:1.5rem;color:var(--gray);font-size:0.82rem">Ingen transaksjoner</td></tr>`;
+    return `<tr class="drill-row"><td colspan="4" style="padding:0">
+      <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
+        <thead><tr style="background:var(--light)"><th style="padding:4px 8px;text-align:left">Dato</th><th style="padding:4px 8px;text-align:left">Beskrivelse</th><th style="padding:4px 8px;text-align:left">Konto</th><th style="padding:4px 8px;text-align:right">Inn</th><th style="padding:4px 8px;text-align:right">Ut</th></tr></thead>
+        <tbody>${txns.map(t=>`<tr style="border-top:1px solid var(--border)">
+          <td style="padding:3px 8px;white-space:nowrap">${t.date?.slice(0,10)||''}</td>
+          <td style="padding:3px 8px">${esc(t.description||'')}</td>
+          <td style="padding:3px 8px;color:var(--gray);font-size:0.78rem">${t.account_code} ${esc(t.account_name||'')}</td>
+          <td style="padding:3px 8px;text-align:right;color:var(--green)">${t.income>0?nok(t.income):''}</td>
+          <td style="padding:3px 8px;text-align:right;color:var(--red)">${t.expense>0?nok(t.expense):''}</td>
+        </tr>`).join('')}</tbody>
+      </table></td></tr>`;
+  }
+
+  function actRows(list, section) {
+    return list.map((a,i) => {
+      const key = `${section}-${i}`;
+      const open = expandedActivities.has(key);
+      const drill = drillRow(a, key);
+      return `
+        <tr class="act-header-row" onclick="toggleActivity('${key}')" style="cursor:pointer">
+          <td style="font-weight:600">${open?'▾':'▸'} ${a.name}</td>
+          <td class="r in">${a.income?nok(a.income):''}</td>
+          <td class="r out">${a.expense?nok(a.expense):''}</td>
+          <td class="r ${a.result>=0?'act-pos':'act-neg'}">${nok(a.result)}</td>
+        </tr>${drill}`;
+    }).join('');
+  }
+
+  let html = '';
+  if (acts.length) {
+    html += `<table style="margin-bottom:1.5rem">
+      <thead><tr><th>Aktivitet</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead>
+      <tbody>${actRows(acts,'act')}</tbody>
+    </table>`;
+  }
+  if (drift.length) {
+    const tot = drift.reduce((s,a)=>s+a.expense,0);
+    html += `<h3 style="margin:0 0 0.5rem;color:var(--navy);font-size:1rem">Drift</h3>
+    <table>
+      <thead><tr><th>Post</th><th class="r">Inntekt</th><th class="r">Utgift</th><th class="r">Resultat</th></tr></thead>
+      <tbody>${actRows(drift,'drift')}
+        <tr style="font-weight:600;border-top:2px solid var(--border)">
+          <td>Sum drift</td><td></td><td class="r out">${nok(tot)}</td><td></td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+  if (!html) html = '<div class="empty"><p>Ingen aktivitetsdata</p></div>';
+  el.innerHTML = html;
+}
+
+function toggleActivity(key) {
+  if (expandedActivities.has(key)) expandedActivities.delete(key);
+  else expandedActivities.add(key);
+  renderActivities();
 }
 
 // ===== IMPORT =====
@@ -900,10 +966,14 @@ function renderActivityCfg() {
     return;
   }
   el.innerHTML = `<table class="setting-table">
-    <thead><tr><th>Navn</th><th>Inntektskontoer (kommaseparert)</th><th>Utgiftskontoer (kommaseparert)</th><th></th></tr></thead>
+    <thead><tr><th>Navn</th><th>Type</th><th>Inntektskontoer</th><th>Utgiftskontoer</th><th></th></tr></thead>
     <tbody>
     ${localActivities.map((a,i) => `<tr>
       <td><input value="${esc(a.name)}" data-ai="${i}" data-af="name" ${isAdmin?'':'readonly'}></td>
+      <td><select data-ai="${i}" data-af="category" ${isAdmin?'':'disabled'}>
+        <option value="activity" ${(a.category||'activity')==='activity'?'selected':''}>Aktivitet</option>
+        <option value="drift" ${a.category==='drift'?'selected':''}>Drift</option>
+      </select></td>
       <td><input value="${(a.income_accounts||[]).join(',')}" data-ai="${i}" data-af="income_accounts" ${isAdmin?'':'readonly'}></td>
       <td><input value="${(a.expense_accounts||[]).join(',')}" data-ai="${i}" data-af="expense_accounts" ${isAdmin?'':'readonly'}></td>
       ${isAdmin ? `<td><button class="btn-sm btn-del" onclick="removeActivityCfg(${i})">Slett</button></td>` : '<td></td>'}
@@ -1016,8 +1086,10 @@ async function saveSettings() {
     const inputs = tr.querySelectorAll('input');
     const idx    = parseInt(tr.querySelector('[data-ai]')?.dataset.ai ?? '-1');
     const existing = (idx >= 0 && idx < localActivities.length) ? localActivities[idx] : null;
+    const selects = tr.querySelectorAll('select');
     const data = {
       name:             inputs[0].value.trim(),
+      category:         selects[0]?.value || 'activity',
       income_accounts:  inputs[1].value.split(',').map(s=>s.trim()).filter(Boolean),
       expense_accounts: inputs[2].value.split(',').map(s=>s.trim()).filter(Boolean),
       year:             currentYear,
