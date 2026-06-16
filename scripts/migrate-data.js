@@ -6,7 +6,7 @@
  *
  * Or locally with DATABASE_URL set (runs migrations inline before inserting).
  */
-require('dotenv').config();
+try { require('dotenv').config(); } catch(e) {}
 const XLSX   = require('xlsx');
 const path   = require('path');
 const fs     = require('fs');
