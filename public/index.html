@@ -174,13 +174,13 @@ tr.vipps-row:hover td{background:#fff0e0;}
     <a onclick="showTab('transaksjoner')">Transaksjoner</a>
     <a onclick="showTab('kategorier')">Kategorier</a>
     <a onclick="showTab('aktiviteter')">Aktiviteter</a>
-    <a onclick="showTab('import')">Importer</a>
+    <a onclick="showTab('import')" class="admin-only">Importer</a>
     <a onclick="showTab('budsjett')">Budsjett</a>
     <a onclick="showTab('innstillinger')">Innstillinger</a>
   </div>
   <div class="nav-right">
     <select class="year-select" id="yearSelect" onchange="switchYear(this.value)"></select>
-    <button class="btn-nav" onclick="showNewYearDialog()">+ Nytt år</button>
+    <button class="btn-nav admin-only" onclick="showNewYearDialog()">+ Nytt år</button>
     <span class="status" id="userStatus"></span>
     <button class="btn-nav" onclick="logout()">Logg ut</button>
   </div>
@@ -219,7 +219,7 @@ tr.vipps-row:hover td{background:#fff0e0;}
         <option value="Vipps">Vipps</option>
       </select>
     </div>
-    <div class="bulk-bar" id="bulkBar">
+    <div class="bulk-bar admin-only" id="bulkBar">
       <span><span class="count" id="bulkCount">0</span> valgt</span>
       <span>Endre konto til:</span>
       <select id="bulkKonto"></select>
@@ -253,7 +253,7 @@ tr.vipps-row:hover td{background:#fff0e0;}
 <div id="tab-import" class="tab">
   <div class="card">
     <h2>Importer CSV-filer</h2>
-    <div class="upload-zone" id="dropzone" onclick="document.getElementById('csvInput').click()">
+    <div class="upload-zone admin-only" id="dropzone" onclick="document.getElementById('csvInput').click()">
       <h3>Slipp bankfil eller Vipps-rapport her</h3>
       <p>Importerer til valgt år. Klikk for å velge, eller dra CSV-filen hit.</p>
       <input type="file" id="csvInput" accept=".csv,.CSV" style="display:none" multiple onchange="handleFiles(this.files)">
@@ -267,7 +267,7 @@ tr.vipps-row:hover td{background:#fff0e0;}
   <div id="budsjettList">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <h2 style="color:var(--navy);margin:0">Aktivitetsbudsjetter</h2>
-      <button class="btn-primary" onclick="newBudget()">+ Nytt budsjett</button>
+      <button class="btn-primary admin-only" onclick="newBudget()">+ Nytt budsjett</button>
     </div>
     <div class="budget-list" id="budgetCards"></div>
     <p id="budgetEmpty" style="color:var(--gray);display:none">Ingen budsjetter ennå.</p>
@@ -305,9 +305,9 @@ tr.vipps-row:hover td{background:#fff0e0;}
         </table>
       </div>
       <div style="display:flex;gap:0.5rem;margin-top:1.2rem">
-        <button class="btn-primary" onclick="saveBudget()">Lagre budsjett</button>
+        <button class="btn-primary admin-only" onclick="saveBudget()">Lagre budsjett</button>
         <button class="btn-sm btn-cancel" onclick="showBudgetList()">Avbryt</button>
-        <button class="btn-sm btn-del" id="budgetDeleteBtn" onclick="deleteBudget()" style="margin-left:auto;display:none">Slett</button>
+        <button class="btn-sm btn-del admin-only" id="budgetDeleteBtn" onclick="deleteBudget()" style="margin-left:auto;display:none">Slett</button>
       </div>
     </div>
   </div>
@@ -324,13 +324,13 @@ tr.vipps-row:hover td{background:#fff0e0;}
     </div>
     <div id="stab-kontoplan" class="setting-section">
       <div id="kontoplanEditor"></div>
-      <button class="btn-sm btn-add" onclick="addKonto()" style="margin-top:0.5rem">+ Ny konto</button>
+      <button class="btn-sm btn-add admin-only" onclick="addKonto()" style="margin-top:0.5rem">+ Ny konto</button>
     </div>
     <div id="stab-regler" class="setting-section" style="display:none">
       <div id="ruleEditor"></div>
-      <button class="btn-sm btn-add" onclick="addRule()">+ Ny regel</button>
+      <button class="btn-sm btn-add admin-only" onclick="addRule()">+ Ny regel</button>
     </div>
-    <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center">
+    <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center" class="admin-only">
       <button class="btn-save" onclick="saveSettings()">Lagre endringer</button>
       <span id="settingsSavedMsg" style="color:var(--green);font-weight:600;display:none">✓ Lagret!</span>
     </div>
@@ -367,14 +367,24 @@ let selectedIds = new Set();
 let monthlyChart = null, resultChart = null;
 let currentBudgetId = null;
 let currentSettingTab = 'kontoplan';
+let isAdmin = false;
 
 // ===== INIT =====
 async function init() {
   const me = await apiFetch('/auth/me');
   if (!me.user) { window.location.href = '/login.html'; return; }
-  document.getElementById('userStatus').textContent = me.user;
+  isAdmin = me.role === 'admin';
+  document.getElementById('userStatus').textContent = me.user + (isAdmin ? '' : ' (lese)');
+  applyRoleUI();
   await loadAccounts();
   await loadYears();
+}
+
+function applyRoleUI() {
+  // Hide all admin-only elements for readonly users
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
 }
 
 // ===== API HELPERS =====
@@ -560,10 +570,9 @@ function filterTransactions() {
 function renderTransactions() {
   const el = document.getElementById('allTransTable');
   if (!filteredTxns.length) { el.innerHTML='<div class="empty"><p>Ingen transaksjoner</p></div>'; return; }
-  const kontoOpts = Object.values(accounts).map(a=>`<option value="${a.code}">${a.code} ${a.name}</option>`).join('');
   el.innerHTML = `<table>
     <thead><tr>
-      <th class="cb-cell"><input type="checkbox" onchange="toggleAll(this)"></th>
+      ${isAdmin ? '<th class="cb-cell"><input type="checkbox" onchange="toggleAll(this)"></th>' : ''}
       <th>Dato</th><th>Konto</th><th>Beskrivelse</th>
       <th class="r">Inn</th><th class="r">Ut</th><th class="r">Saldo</th><th>Kilde</th>
     </tr></thead>
@@ -571,10 +580,13 @@ function renderTransactions() {
     ${filteredTxns.map(t => {
       const sel = selectedIds.has(t.id) ? 'selected' : '';
       const cls = t.source === 'Vipps' ? 'vipps-row' : '';
+      const kontoCell = isAdmin
+        ? `<span class="konto-cell" onclick="startEditKonto(${t.id},this)">${t.account_code} ${t.account_name||''}</span>`
+        : `<span>${t.account_code} ${t.account_name||''}</span>`;
       return `<tr class="${cls} ${sel}" data-id="${t.id}">
-        <td class="cb-cell"><input type="checkbox" ${sel?'checked':''} onchange="toggleRow(${t.id},this)"></td>
+        ${isAdmin ? `<td class="cb-cell"><input type="checkbox" ${sel?'checked':''} onchange="toggleRow(${t.id},this)"></td>` : ''}
         <td class="dim">${fmtDate(t.date)}</td>
-        <td><span class="konto-cell" onclick="startEditKonto(${t.id},this)">${t.account_code} ${t.account_name||''}</span></td>
+        <td>${kontoCell}</td>
         <td>${esc(t.description||'')}</td>
         <td class="r in">${parseFloat(t.income)>0?nok(t.income):''}</td>
         <td class="r out">${parseFloat(t.expense)>0?nok(t.expense):''}</td>
@@ -878,10 +890,10 @@ function renderKontoplan() {
     <thead><tr><th>Kode</th><th>Navn</th><th>Type</th><th></th></tr></thead>
     <tbody>
     ${localAccounts.map(a=>`<tr data-code="${a.code}">
-      <td><input value="${a.code}" style="width:60px"></td>
-      <td><input value="${esc(a.name)}"></td>
-      <td><select><option ${a.type==='Inntekt'?'selected':''}>Inntekt</option><option ${a.type==='Utgift'?'selected':''}>Utgift</option></select></td>
-      <td><button class="btn-sm btn-del" onclick="removeKonto('${a.code}')">Slett</button></td>
+      <td><input value="${a.code}" style="width:60px" ${isAdmin?'':'readonly'}></td>
+      <td><input value="${esc(a.name)}" ${isAdmin?'':'readonly'}></td>
+      <td><select ${isAdmin?'':'disabled'}><option ${a.type==='Inntekt'?'selected':''}>Inntekt</option><option ${a.type==='Utgift'?'selected':''}>Utgift</option></select></td>
+      ${isAdmin ? `<td><button class="btn-sm btn-del" onclick="removeKonto('${a.code}')">Slett</button></td>` : '<td></td>'}
     </tr>`).join('')}
     </tbody></table>`;
 }
@@ -902,12 +914,12 @@ function renderRules() {
     <thead><tr><th>Type</th><th>Felt</th><th>Søketekst</th><th>Konto</th><th>Beskrivelse</th><th></th></tr></thead>
     <tbody>
     ${localRules.map((r,i)=>`<tr>
-      <td><select data-i="${i}" data-f="source_type"><option value="bank_income" ${r.source_type==='bank_income'?'selected':''}>Bank inn</option><option value="bank_expense" ${r.source_type==='bank_expense'?'selected':''}>Bank ut</option><option value="vipps" ${r.source_type==='vipps'?'selected':''}>Vipps</option></select></td>
-      <td><select data-i="${i}" data-f="match_field"><option value="combined" ${r.match_field==='combined'?'selected':''}>Navn+tittel</option><option value="pay_type" ${r.match_field==='pay_type'?'selected':''}>Betalingstype</option></select></td>
-      <td><input value="${esc(r.match_text)}" data-i="${i}" data-f="match_text"></td>
-      <td><input value="${esc(r.account_code)}" data-i="${i}" data-f="account_code" style="width:60px"></td>
-      <td><input value="${esc(r.description||'')}" data-i="${i}" data-f="description"></td>
-      <td><button class="btn-sm btn-del" onclick="removeRule(${i})">Slett</button></td>
+      <td><select data-i="${i}" data-f="source_type" ${isAdmin?'':'disabled'}><option value="bank_income" ${r.source_type==='bank_income'?'selected':''}>Bank inn</option><option value="bank_expense" ${r.source_type==='bank_expense'?'selected':''}>Bank ut</option><option value="vipps" ${r.source_type==='vipps'?'selected':''}>Vipps</option></select></td>
+      <td><select data-i="${i}" data-f="match_field" ${isAdmin?'':'disabled'}><option value="combined" ${r.match_field==='combined'?'selected':''}>Navn+tittel</option><option value="pay_type" ${r.match_field==='pay_type'?'selected':''}>Betalingstype</option></select></td>
+      <td><input value="${esc(r.match_text)}" data-i="${i}" data-f="match_text" ${isAdmin?'':'readonly'}></td>
+      <td><input value="${esc(r.account_code)}" data-i="${i}" data-f="account_code" style="width:60px" ${isAdmin?'':'readonly'}></td>
+      <td><input value="${esc(r.description||'')}" data-i="${i}" data-f="description" ${isAdmin?'':'readonly'}></td>
+      ${isAdmin ? `<td><button class="btn-sm btn-del" onclick="removeRule(${i})">Slett</button></td>` : '<td></td>'}
     </tr>`).join('')}
     </tbody></table>`;
 }
